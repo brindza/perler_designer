@@ -245,27 +245,28 @@ h.new_board([], []);
     ogca = gca;
     axes(h.board_ax);
 
+    % draw center bead
     count = 1;
-    for l = 0:r
-      nc = 0;
-      for x = -r+l*0.5:r-l*0.5
-        p = [x+nc*0.1 l]';
+    h.beads.h(count) = h.draw_circ([0 0]', h.beads.r, 'w', pi/20, true);
+    h.beads.opos(1,:,count) = get(h.beads.h(count), 'XData');
+    h.beads.opos(2,:,count) = get(h.beads.h(count), 'YData');
+    count = count + 1;
 
-        h.beads.h(count) = h.draw_circ(p, h.beads.r, 'w', pi/20, true);
-        h.beads.opos(1,:,count) = get(h.beads.h(count), 'XData');
-        h.beads.opos(2,:,count) = get(h.beads.h(count), 'YData');
-        count = count + 1;
+    for l = 1:r
+      % corner points
+      cn = [(l + l*0.1) * cos(0:pi/3:2*pi); (l + l*0.1) * sin(0:pi/3:2*pi)]; 
 
-        if (l > 0)
-          p = [x+nc*0.1 -l]';
+      % intermediate edge points
+      for s = 1:6
+        px = linspace(cn(1,s), cn(1,mod(s,6)+1), l+1);
+        py = linspace(cn(2,s), cn(2,mod(s,6)+1), l+1);
 
-          h.beads.h(count) = h.draw_circ(p, h.beads.r, 'w', pi/20, true);
+        for i = 1:numel(px)-1
+          h.beads.h(count) = h.draw_circ([px(i) py(i)], h.beads.r, 'w', pi/20, true);
           h.beads.opos(1,:,count) = get(h.beads.h(count), 'XData');
           h.beads.opos(2,:,count) = get(h.beads.h(count), 'YData');
           count = count + 1;
         end
-
-        nc = nc + 1;
       end
     end
 
@@ -291,6 +292,8 @@ h.new_board([], []);
     end
     rot = rot * pi/180;
 
+    r = floor(d/2);
+
     % handles for bead patches
     h.beads.h = zeros(1, d*d);
     % bead original positions
@@ -300,8 +303,8 @@ h.new_board([], []);
     axes(h.board_ax);
 
     count = 1;
-    for y = 1:d
-      for x = 1:d
+    for y = -r:r
+      for x = -r:r
         p = [x+(x-1)*0.1, y+(y-1)*0.1]';
 
         h.beads.h(count) = h.draw_circ(p, h.beads.r, 'w', pi/20, true);
