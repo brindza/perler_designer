@@ -8,9 +8,70 @@ fwidth = 800;
 fheight = 500;
 
 % initialize figure
-h.fig = init_figure('Perler Design', false, false, 'w');
-opos = get(h.fig, 'OuterPosition');
-set(h.fig, 'OuterPosition', [opos(1) opos(2) fwidth fheight]);
+h.fh = figure();
+set(h.fh, 'Name', 'Perler Designer', 'MenuBar', 'none', 'Toolbar', 'none', 'Color', 'w');
+opos = get(h.fh, 'OuterPosition');
+set(h.fh, 'OuterPosition', [opos(1) opos(2) fwidth fheight]);
+
+
+% create shape list
+rbheight = 20;
+rbwidth = 150;
+h.shapeList = {'Hexagon', 'Square', 'Circle'};
+h.shapeButtonGroup = uibuttongroup('units', 'pixels', ...
+                                    'position', [580 380 rbwidth 3*rbheight], ...
+                                    'BackgroundColor', 'w', ...
+                                    'ForegroundColor', 'w', ...
+                                    'ShadowColor', 'w');
+for i = 1:numel(h.shapeList)
+  h.rshapeButton(i) = uicontrol('style', 'radiobutton', ...
+                                'parent', h.shapeButtonGroup, ...
+                                'position', [0 (i-1)*rbheight rbwidth rbheight], ...
+                                'BackgroundColor', 'w', ...
+                                'string', [' ' h.shapeList{i}]);
+end
+
+% create rotation input
+h.rotEditBox = uicontrol('style', 'edit', ...
+                          'units', 'pixels', ...
+                          'position', [580 350 50 20], ...
+                          'string', '0', ...
+                          'BackgroundColor', 'w');
+h.rotTextBox = uicontrol('style', 'text', ...
+                          'units', 'pixels', ...
+                          'position', [640 350 150 17], ...
+                          'string', 'Rotation (degrees)', ...
+                          'HorizontalAlign', 'Left', ...
+                          'BackgroundColor', 'w');
+
+% create rotation input
+h.diameterEditBox = uicontrol('style', 'edit', ...
+                              'units', 'pixels', ...
+                              'position', [580 320 50 20], ...
+                              'string', '18', ...
+                              'BackgroundColor', 'w');
+h.diameterTextBox = uicontrol('style', 'text', ...
+                              'units', 'pixels', ...
+                              'position', [640 320 150 17], ...
+                              'string', 'Diameter (beads)', ...
+                              'HorizontalAlign', 'Left', ...
+                              'BackgroundColor', 'w');
+
+% create/reset button                                
+bwidth = 70;
+bheight = 20;
+h.newButton = uicontrol('style', 'pushbutton', ...
+                          'units', 'pixels', ...
+                          'position', [580 290 70 20], ...
+                          'string', 'New', ...
+                          'BackgroundColor', 'w');
+
+% save button                                
+h.saveButton = uicontrol('style', 'pushbutton', ...
+                          'units', 'pixels', ...
+                          'position', [660 290 70 20], ...
+                          'string', 'Save', ...
+                          'BackgroundColor', 'w');
 
 % initialize board axis
 h.board_ax = axes();
@@ -23,8 +84,7 @@ axis(h.board_ax, 'off');
 h.palette_ax = axes();
 hold on; 
 set(h.palette_ax, 'Position', [(fwidth - fheight*0.5)/fwidth, 0.05, (fheight*0.5)/fwidth, 0.5]);
-axis(h.palette_ax, 'equal');
-axis(h.palette_ax, 'off');
+axis(h.palette_ax, 'equal'); axis(h.palette_ax, 'off');
 
 % perler bead data
 h.beads = [];
@@ -33,7 +93,7 @@ h.beads.h = [];
 h.beads.r = 0.5;
 
 % bead colors
-h.icurrColor = 4;
+h.icurrColor = 1;
 h.colors = [   25   25   25; ... black
                96   96   96; ... dark grey
               164  164  164; ... grey
@@ -77,6 +137,8 @@ h.selectedColorDisp = [];
 % set function handle pointers
 h.init_color_palette = @init_color_palette;
 h.draw_circ = @draw_circ;
+h.draw_circle_board = @draw_circle_board;
+h.draw_square_board = @draw_square_board;
 h.draw_hex_board = @draw_hex_board;
 h.set_bead_ButtonDownFcn = @set_bead_ButtonDownFcn;
 h.set_palette_ButtonDownFcn = @set_palette_ButtonDownFcn;
@@ -84,10 +146,16 @@ h.bead_click_callback = @bead_click_callback;
 h.palette_click_callback = @palette_click_callback; 
 h.clear_current_board = @clear_current_board;
 h.set_selected_color = @set_selected_color;
+h.new_board = @new_board;
+h.save_board = @save_board;
 
-% initialize the board
+% set callback functions for push buttons
+set(h.newButton, 'Callback', h.new_board);
+set(h.saveButton, 'Callback', h.save_board);
+
+% initialize the gui
 h.init_color_palette();
-h.draw_hex_board();
+h.draw_square_board();
 
 
   function init_color_palette() 
@@ -119,23 +187,55 @@ h.draw_hex_board();
     h.set_palette_ButtonDownFcn()
   end
 
-  function draw_hex_board(r, rot90)
-  % draws a hexagonal perler board
+  function new_board(obj_hdl, evt)
+  % create a new board
     if (clear_current_board() == false)
       return
     end
 
-    if (nargin < 1)
-      r = 9;
-    end
-    if (nargin < 2)
-      rot90 = false;
+    % get current rotation value
+    rotstr = get(h.rotEditBox, 'string');
+    try
+      rot = str2num(rotstr);
+    catch
+      rot = 0;
     end
 
-    R = eye(2);
-    if (rot90);
-      R = [0 -1; 1 0];
+    % get current diameter value
+    dstr = get(h.diameterEditBox, 'string');
+    try
+      d = str2num(dstr);
+    catch
+      d = 18;
     end
+
+    % get shape string
+    ishape = find(h.rshapeButton == get(h.shapeButtonGroup, 'SelectedObject'));
+    shape = h.shapeList{ishape};
+    if (strcmp(shape, 'Circle'))
+      h.draw_circle_board(d, rot);
+    end
+    if (strcmp(shape, 'Square'))
+      h.draw_square_board(d, rot);
+    end
+    if (strcmp(shape, 'Hexagon'))
+      h.draw_hex_board(d, rot);
+    end
+  end
+
+  function draw_hex_board(d, rot)
+  % draws a hexagonal perler board
+    if (nargin < 1)
+      r = 9;
+    else
+      r = floor(d/2);
+    end
+    if (nargin < 2)
+      rot = 0;
+    end
+    rot = rot * pi/180;
+
+    R = [cos(rot) -sin(rot); sin(rot) cos(rot)];
 
     % handles for bead patches
     h.beads.h = zeros(1, 2*r+1 + 2*sum(2*r:-1:r+1));
@@ -175,6 +275,88 @@ h.draw_hex_board();
     axis(h.board_ax, 'equal');
   end
 
+  function draw_square_board(d, rot)
+  % draws a hexagonal perler board
+    if (nargin < 1)
+      d = 12;
+    end
+    if (nargin < 2)
+      rot = 0;
+    end
+
+    rot = rot * pi/180;
+
+    R = [cos(rot) -sin(rot); sin(rot) cos(rot)];
+
+    % handles for bead patches
+    h.beads.h = zeros(1, d*d);
+    % bead positions
+    h.beads.pos  = zeros(2, d*d);
+
+    ogca = gca;
+    axes(h.board_ax);
+
+    count = 1;
+    for y = 1:d
+      for x = 1:d
+        p = R * [x+(x-1)*0.1, y+(y-1)*0.1]';
+
+        h.beads.h(count) = h.draw_circ(p, 0.5, 'w', pi/20, true);
+        h.beads.pos(:,count) = p;
+        count = count + 1;
+      end
+    end
+
+    axes(ogca);
+
+    % set callback functions
+    h.set_bead_ButtonDownFcn();
+
+    axis(h.board_ax, 'tight');
+    axis(h.board_ax, 'equal');
+  end
+
+  function draw_circle_board(d, rot)
+  % draws a hexagonal perler board
+    if (nargin < 1)
+      d = 12;
+    end
+    if (nargin < 2)
+      rot = 0;
+    end
+
+    rot = rot * pi/180;
+
+    R = [cos(rot) -sin(rot); sin(rot) cos(rot)];
+
+    % handles for bead patches
+    h.beads.h = zeros(1, d*d);
+    % bead positions
+    h.beads.pos  = zeros(2, d*d);
+
+    ogca = gca;
+    axes(h.board_ax);
+
+    count = 1;
+    for y = 1:d
+      for x = 1:d
+        p = R * [x+(x-1)*0.1, y+(y-1)*0.1]';
+
+        h.beads.h(count) = h.draw_circ(p, 0.5, 'w', pi/20, true);
+        h.beads.pos(:,count) = p;
+        count = count + 1;
+      end
+    end
+
+    axes(ogca);
+
+    % set callback functions
+    h.set_bead_ButtonDownFcn();
+
+    axis(h.board_ax, 'tight');
+    axis(h.board_ax, 'equal');
+  end
+
   function set_bead_ButtonDownFcn()
     for i = 1:numel(h.beads.h)
       set(h.beads.h(i), 'ButtonDownFcn', h.bead_click_callback);
@@ -195,6 +377,9 @@ h.draw_hex_board();
     h.set_selected_color(find(h.colorPalette == obj_hdl));
   end
 
+  function shape_select_callback(obj_hdl, evt)
+  end
+
   function set_selected_color(icolor)
     h.icurrColor = icolor;
     set(h.selectedColorDisp, 'FaceColor', h.colors(:,h.icurrColor));
@@ -209,7 +394,6 @@ h.draw_hex_board();
     h.beads.h = [];
     ret = true;
   end
-  
 
   function ph = draw_circ(t, scale, color, res, usePatch)
   % draw a circle
