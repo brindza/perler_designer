@@ -9,7 +9,11 @@ fheight = 500;
 
 % initialize figure
 h.fh = figure();
-set(h.fh, 'Name', 'Perler Designer', 'MenuBar', 'none', 'Toolbar', 'none', 'Color', 'w');
+set(h.fh, 'Name', 'Perler Designer', ...
+          'MenuBar', 'none', ...
+          'Toolbar', 'none', ...
+          'Color', 'w', ...
+          'NumberTitle', 'off');
 opos = get(h.fh, 'OuterPosition');
 set(h.fh, 'OuterPosition', [opos(1) opos(2) fwidth fheight]);
 
@@ -46,14 +50,14 @@ h.diameterTextBox = uicontrol('style', 'text', ...
 % create rotation input
 h.rotSlider = uicontrol('style', 'slider', ...
                           'units', 'pixels', ...
-                          'position', [580 290 150 20], ...
+                          'position', [580 320 150 20], ...
                           'BackgroundColor', 'w', ...
                           'Min', -180, 'Max', 180, ...
                           'SliderStep', [2.5/180 2.5/180]);
 % create rotation input
 h.rotTextBox = uicontrol('style', 'text', ...
                           'units', 'pixels', ...
-                          'position', [740 290 150 17], ...
+                          'position', [740 320 150 17], ...
                           'string', '0 deg', ...
                           'HorizontalAlign', 'Left', ...
                           'BackgroundColor', 'w');
@@ -64,16 +68,30 @@ bwidth = 70;
 bheight = 20;
 h.newButton = uicontrol('style', 'pushbutton', ...
                           'units', 'pixels', ...
-                          'position', [580 320 70 20], ...
+                          'position', [580 290 70 20], ...
                           'string', 'New', ...
                           'BackgroundColor', 'w');
 
-% save button                                
+% print button                                
 h.printButton = uicontrol('style', 'pushbutton', ...
                           'units', 'pixels', ...
-                          'position', [660 320 70 20], ...
+                          'position', [660 290 70 20], ...
                           'string', 'Print', ...
                           'BackgroundColor', 'w');
+
+% load button                                
+h.loadButton = uicontrol('style', 'pushbutton', ...
+                          'units', 'pixels', ...
+                          'position', [580 270 70 20], ...
+                          'string', 'Load', ...
+                          'BackgroundColor', 'w');
+% save button                                
+h.saveButton = uicontrol('style', 'pushbutton', ...
+                          'units', 'pixels', ...
+                          'position', [660 270 70 20], ...
+                          'string', 'Save', ...
+                          'BackgroundColor', 'w');
+
 
 % initialize board axis
 h.board_ax = axes();
@@ -90,7 +108,10 @@ axis(h.palette_ax, 'equal'); axis(h.palette_ax, 'off');
 
 % perler bead data
 h.beads = [];
+% original positions of all points on each bead circle 
 h.beads.opos = [];
+% original positions of all bead center points
+h.beads.cpos = [];
 h.beads.h = [];
 h.beads.r = 0.5;
 
@@ -160,6 +181,8 @@ set(h.rotSlider, 'Callback', h.rot_slider_callback);
 % set callback functions for push buttons
 set(h.newButton, 'Callback', h.new_board);
 set(h.printButton, 'Callback', h.print_board);
+set(h.saveButton, 'Callback', h.save_board);
+set(h.loadButton, 'Callback', h.load_board);
 
 % initialize the gui
 h.init_color_palette();
@@ -245,6 +268,7 @@ h.new_board([], []);
     h.beads.h = zeros(1, 2*r+1 + 2*sum(2*r:-1:r+1));
     % bead original positions
     h.beads.opos  = zeros(2, 41, 2*r+1 + 2*sum(2*r:-1:r+1));
+    h.beads.cpos  = zeros(2, 2*r+1 + 2*sum(2*r:-1:r+1));
 
     ogca = gca;
     axes(h.board_ax);
@@ -254,6 +278,7 @@ h.new_board([], []);
     h.beads.h(count) = h.draw_circ([0 0]', h.beads.r, 'w', pi/20, true);
     h.beads.opos(1,:,count) = get(h.beads.h(count), 'XData');
     h.beads.opos(2,:,count) = get(h.beads.h(count), 'YData');
+    h.beads.cpos(:,count) = [0 0]';
     count = count + 1;
 
     for l = 1:r
@@ -269,6 +294,7 @@ h.new_board([], []);
           h.beads.h(count) = h.draw_circ([px(i) py(i)], h.beads.r, 'w', pi/20, true);
           h.beads.opos(1,:,count) = get(h.beads.h(count), 'XData');
           h.beads.opos(2,:,count) = get(h.beads.h(count), 'YData');
+          h.beads.cpos(:,count) = [px(i) py(i)]';
           count = count + 1;
         end
       end
@@ -302,6 +328,7 @@ h.new_board([], []);
     h.beads.h = zeros(1, d*d);
     % bead original positions
     h.beads.opos  = zeros(2, 41, d*d);
+    h.beads.cpos  = zeros(2, d*d);
 
     ogca = gca;
     axes(h.board_ax);
@@ -314,6 +341,7 @@ h.new_board([], []);
         h.beads.h(count) = h.draw_circ(p, h.beads.r, 'w', pi/20, true);
         h.beads.opos(1,:,count) = get(h.beads.h(count), 'XData');
         h.beads.opos(2,:,count) = get(h.beads.h(count), 'YData');
+        h.beads.cpos(:,count) = p;
         count = count + 1;
       end
     end
@@ -346,6 +374,7 @@ h.new_board([], []);
     h.beads.h = zeros(1, 1+sum(6.*[1:r]));
     % bead original positions
     h.beads.opos  = zeros(2, 41, 1+sum(6.*[1:r]));
+    h.beads.cpos  = zeros(2, 1+sum(6.*[1:r]));
 
     ogca = gca;
     axes(h.board_ax);
@@ -355,6 +384,7 @@ h.new_board([], []);
     h.beads.h(count) = h.draw_circ([0 0]', h.beads.r, 'w', pi/20, true);
     h.beads.opos(1,:,count) = get(h.beads.h(count), 'XData');
     h.beads.opos(2,:,count) = get(h.beads.h(count), 'YData');
+    h.beads.cpos(:,count) = [0 0]';
     count = count + 1;
 
     for l = 1:r
@@ -365,6 +395,7 @@ h.new_board([], []);
         h.beads.h(count) = h.draw_circ(p(:,i), h.beads.r, 'w', pi/20, true);
         h.beads.opos(1,:,count) = get(h.beads.h(count), 'XData');
         h.beads.opos(2,:,count) = get(h.beads.h(count), 'YData');
+        h.beads.cpos(:,count) = p(:,i);
         count = count + 1;
       end
     end
@@ -499,12 +530,69 @@ h.new_board([], []);
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   %% Save/Load Functions
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  % format of save objects
+  %   struct with fields
+  %     pos - 2xn original bead positions
+  %     color - 3xn color value of each (the actual rgb color)
+  %     
 
-  function save_board()
+  function save_board(obj_hdl, evt)
+    % select save file
+    [filename, pathname] = uiputfile('*.mat', 'Save board as...');
+    if (numel(filename) == 1 && filename == 0)
+      return;
+    end
+
+    % create save struct
+    st = [];
+    st.pos = h.beads.cpos;
+    st.color = zeros(3,numel(h.beads.h));
+    for i = 1:numel(h.beads.h)
+      st.color(:,i) = get(h.beads.h(i), 'FaceColor');
+    end
+
+    save([pathname filename], 'st');
   end
 
-  function load_board()
-  end
+  function load_board(obj_hdl, evt)
+    % select file to load
+    [filename, pathname] = uigetfile('*.mat', 'Load board...');
+    if (numel(filename) == 1 && filename == 0)
+      return;
+    end
 
+    st = getfield(load([pathname filename]), 'st');
+
+    % number of beads
+    n = size(st.pos,2);
+
+    h.clear_current_board();
+
+    ogca = gca;
+    axes(h.board_ax);
+    
+    h.beads.h = zeros(1,n);
+    h.beads.opos = zeros(2,41,n);
+    h.beads.cpos = zeros(2,n);
+
+    for count = 1:size(st.pos,2)
+      h.beads.h(count) = h.draw_circ(st.pos(:,count), h.beads.r, 'w', pi/20, true);
+      h.beads.opos(1,:,count) = get(h.beads.h(count), 'XData');
+      h.beads.opos(2,:,count) = get(h.beads.h(count), 'YData');
+      h.beads.cpos(:,count) = st.pos(:,count);
+      set(h.beads.h(count), 'FaceColor', st.color(:,count));
+    end
+
+    % set callback functions
+    h.set_bead_ButtonDownFcn();
+
+    rot = get(h.rotSlider, 'Value');
+    h.rotate_board(rot*pi/180);
+
+    axis(h.board_ax, 'tight');
+    axis(h.board_ax, 'equal');
+
+    axes(ogca);
+  end
 end
 
