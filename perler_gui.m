@@ -377,9 +377,6 @@ h.draw_square_board();
     h.set_selected_color(find(h.colorPalette == obj_hdl));
   end
 
-  function shape_select_callback(obj_hdl, evt)
-  end
-
   function set_selected_color(icolor)
     h.icurrColor = icolor;
     set(h.selectedColorDisp, 'FaceColor', h.colors(:,h.icurrColor));
@@ -424,6 +421,17 @@ h.draw_square_board();
     else
       ph = plot(axHandle, X(1,:), X(2,:), 'Color', color);
     end
+  end
+
+  function save_board(obj_hdl, evt)
+    F = getframe(h.board_ax);
+    % create data string
+    dstr = datestr(now(), 'yyyy_mm_dd_HH_MM_SS');
+    fname = sprintf('perler_design_%s.jpg', dstr);
+    % save image
+    fprintf('saving %s...', fname);
+    imwrite(F.cdata, fname);
+    fprintf('done\n');
   end
 
 end
