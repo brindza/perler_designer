@@ -155,7 +155,7 @@ set(h.saveButton, 'Callback', h.save_board);
 
 % initialize the gui
 h.init_color_palette();
-h.draw_square_board();
+h.new_board([], []);
 
 
   function init_color_palette() 
