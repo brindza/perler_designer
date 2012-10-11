@@ -31,45 +31,47 @@ for i = 1:numel(h.shapeList)
                                 'string', [' ' h.shapeList{i}]);
 end
 
-% create rotation input
-h.rotEditBox = uicontrol('style', 'edit', ...
-                          'units', 'pixels', ...
-                          'position', [580 350 50 20], ...
-                          'string', '0', ...
-                          'BackgroundColor', 'w');
-h.rotTextBox = uicontrol('style', 'text', ...
-                          'units', 'pixels', ...
-                          'position', [640 350 150 17], ...
-                          'string', 'Rotation (degrees)', ...
-                          'HorizontalAlign', 'Left', ...
-                          'BackgroundColor', 'w');
-
-% create rotation input
+% create diameter input
 h.diameterEditBox = uicontrol('style', 'edit', ...
                               'units', 'pixels', ...
-                              'position', [580 320 50 20], ...
+                              'position', [580 350 50 20], ...
                               'string', '18', ...
                               'BackgroundColor', 'w');
 h.diameterTextBox = uicontrol('style', 'text', ...
                               'units', 'pixels', ...
-                              'position', [640 320 150 17], ...
+                              'position', [640 350 150 17], ...
                               'string', 'Diameter (beads)', ...
                               'HorizontalAlign', 'Left', ...
                               'BackgroundColor', 'w');
+% create rotation input
+h.rotSlider = uicontrol('style', 'slider', ...
+                          'units', 'pixels', ...
+                          'position', [580 290 150 20], ...
+                          'BackgroundColor', 'w', ...
+                          'Min', -180, 'Max', 180, ...
+                          'SliderStep', [2.5/180 2.5/180]);
+% create rotation input
+h.rotTextBox = uicontrol('style', 'text', ...
+                          'units', 'pixels', ...
+                          'position', [740 290 150 17], ...
+                          'string', '0 deg', ...
+                          'HorizontalAlign', 'Left', ...
+                          'BackgroundColor', 'w');
+
 
 % create/reset button                                
 bwidth = 70;
 bheight = 20;
 h.newButton = uicontrol('style', 'pushbutton', ...
                           'units', 'pixels', ...
-                          'position', [580 290 70 20], ...
+                          'position', [580 320 70 20], ...
                           'string', 'New', ...
                           'BackgroundColor', 'w');
 
 % save button                                
 h.saveButton = uicontrol('style', 'pushbutton', ...
                           'units', 'pixels', ...
-                          'position', [660 290 70 20], ...
+                          'position', [660 320 70 20], ...
                           'string', 'Save', ...
                           'BackgroundColor', 'w');
 
@@ -88,7 +90,7 @@ axis(h.palette_ax, 'equal'); axis(h.palette_ax, 'off');
 
 % perler bead data
 h.beads = [];
-h.beads.pos = [];
+h.beads.opos = [];
 h.beads.h = [];
 h.beads.r = 0.5;
 
@@ -142,13 +144,17 @@ h.draw_square_board = @draw_square_board;
 h.draw_hex_board = @draw_hex_board;
 h.set_bead_ButtonDownFcn = @set_bead_ButtonDownFcn;
 h.set_palette_ButtonDownFcn = @set_palette_ButtonDownFcn;
+h.rot_slider_callback = @rot_slider_callback; 
 h.bead_click_callback = @bead_click_callback; 
 h.palette_click_callback = @palette_click_callback; 
 h.clear_current_board = @clear_current_board;
 h.set_selected_color = @set_selected_color;
+h.rotate_board = @rotate_board;
 h.new_board = @new_board;
 h.save_board = @save_board;
 
+% set rotation slider callback
+set(h.rotSlider, 'Callback', h.rot_slider_callback);
 % set callback functions for push buttons
 set(h.newButton, 'Callback', h.new_board);
 set(h.saveButton, 'Callback', h.save_board);
@@ -194,12 +200,7 @@ h.new_board([], []);
     end
 
     % get current rotation value
-    rotstr = get(h.rotEditBox, 'string');
-    try
-      rot = str2num(rotstr);
-    catch
-      rot = 0;
-    end
+    rot = get(h.rotSlider, 'Value');
 
     % get current diameter value
     dstr = get(h.diameterEditBox, 'string');
@@ -221,7 +222,8 @@ h.new_board([], []);
     if (strcmp(shape, 'Hexagon'))
       h.draw_hex_board(d, rot);
     end
-  end
+  end 
+
 
   function draw_hex_board(d, rot)
   % draws a hexagonal perler board
@@ -235,12 +237,10 @@ h.new_board([], []);
     end
     rot = rot * pi/180;
 
-    R = [cos(rot) -sin(rot); sin(rot) cos(rot)];
-
     % handles for bead patches
     h.beads.h = zeros(1, 2*r+1 + 2*sum(2*r:-1:r+1));
-    % bead positions
-    h.beads.pos  = zeros(2, 2*r+1 + 2*sum(2*r:-1:r+1));
+    % bead original positions
+    h.beads.opos  = zeros(2, 41, 2*r+1 + 2*sum(2*r:-1:r+1));
 
     ogca = gca;
     axes(h.board_ax);
@@ -249,16 +249,19 @@ h.new_board([], []);
     for l = 0:r
       nc = 0;
       for x = -r+l*0.5:r-l*0.5
-        p = R * [x+nc*0.1 l]';
+        p = [x+nc*0.1 l]';
 
-        h.beads.h(count) = h.draw_circ(p, 0.5, 'w', pi/20, true);
-        h.beads.pos(:,count) = p;
+        h.beads.h(count) = h.draw_circ(p, h.beads.r, 'w', pi/20, true);
+        h.beads.opos(1,:,count) = get(h.beads.h(count), 'XData');
+        h.beads.opos(2,:,count) = get(h.beads.h(count), 'YData');
         count = count + 1;
 
         if (l > 0)
-          p = R * [x+nc*0.1 -l]';
-          h.beads.h(count) = h.draw_circ(p, 0.5, 'w', pi/20, true);
-          h.beads.pos(:,count) = p;
+          p = [x+nc*0.1 -l]';
+
+          h.beads.h(count) = h.draw_circ(p, h.beads.r, 'w', pi/20, true);
+          h.beads.opos(1,:,count) = get(h.beads.h(count), 'XData');
+          h.beads.opos(2,:,count) = get(h.beads.h(count), 'YData');
           count = count + 1;
         end
 
@@ -270,6 +273,9 @@ h.new_board([], []);
 
     % set callback functions
     h.set_bead_ButtonDownFcn();
+
+    % rotate board
+    h.rotate_board(rot);
 
     axis(h.board_ax, 'tight');
     axis(h.board_ax, 'equal');
@@ -283,15 +289,12 @@ h.new_board([], []);
     if (nargin < 2)
       rot = 0;
     end
-
     rot = rot * pi/180;
-
-    R = [cos(rot) -sin(rot); sin(rot) cos(rot)];
 
     % handles for bead patches
     h.beads.h = zeros(1, d*d);
-    % bead positions
-    h.beads.pos  = zeros(2, d*d);
+    % bead original positions
+    h.beads.opos  = zeros(2, 41, d*d);
 
     ogca = gca;
     axes(h.board_ax);
@@ -299,10 +302,11 @@ h.new_board([], []);
     count = 1;
     for y = 1:d
       for x = 1:d
-        p = R * [x+(x-1)*0.1, y+(y-1)*0.1]';
+        p = [x+(x-1)*0.1, y+(y-1)*0.1]';
 
-        h.beads.h(count) = h.draw_circ(p, 0.5, 'w', pi/20, true);
-        h.beads.pos(:,count) = p;
+        h.beads.h(count) = h.draw_circ(p, h.beads.r, 'w', pi/20, true);
+        h.beads.opos(1,:,count) = get(h.beads.h(count), 'XData');
+        h.beads.opos(2,:,count) = get(h.beads.h(count), 'YData');
         count = count + 1;
       end
     end
@@ -311,6 +315,9 @@ h.new_board([], []);
 
     % set callback functions
     h.set_bead_ButtonDownFcn();
+
+    % rotate board
+    h.rotate_board(rot);
 
     axis(h.board_ax, 'tight');
     axis(h.board_ax, 'equal');
@@ -326,33 +333,31 @@ h.new_board([], []);
     if (nargin < 2)
       rot = 0;
     end
-
     rot = rot * pi/180;
-
-    R = [cos(rot) -sin(rot); sin(rot) cos(rot)];
 
     % handles for bead patches
     h.beads.h = zeros(1, 1+sum(6.*[1:r]));
-    % bead positions
-    h.beads.pos  = zeros(2, 1+sum(6.*[1:r]));
+    % bead original positions
+    h.beads.opos  = zeros(2, 41, 1+sum(6.*[1:r]));
 
     ogca = gca;
     axes(h.board_ax);
 
     % draw center bead
     count = 1;
-    h.beads.h(count) = h.draw_circ([0 0], 0.5, 'w', pi/20, true);
+    h.beads.h(count) = h.draw_circ([0 0]', h.beads.r, 'w', pi/20, true);
+    h.beads.opos(1,:,count) = get(h.beads.h(count), 'XData');
+    h.beads.opos(2,:,count) = get(h.beads.h(count), 'YData');
     count = count + 1;
 
     for l = 1:r
       % distritize circle of radius l into l*6 points
-      X = [(l + l*0.1) * cos(0:2*pi/(l*6):2*pi); (l + l*0.1)*sin(0:2*pi/(l*6):2*pi)];
-
-      p = R * X;
+      p = [(l + l*0.1) * cos(0:2*pi/(l*6):2*pi); (l + l*0.1)*sin(0:2*pi/(l*6):2*pi)];
 
       for i = 1:size(p,2)
-        h.beads.h(count) = h.draw_circ(p(:,i), 0.5, 'w', pi/20, true);
-        h.beads.pos(:,count) = p(:,i);
+        h.beads.h(count) = h.draw_circ(p(:,i), h.beads.r, 'w', pi/20, true);
+        h.beads.opos(1,:,count) = get(h.beads.h(count), 'XData');
+        h.beads.opos(2,:,count) = get(h.beads.h(count), 'YData');
         count = count + 1;
       end
     end
@@ -362,8 +367,23 @@ h.new_board([], []);
     % set callback functions
     h.set_bead_ButtonDownFcn();
 
+    % rotate board
+    h.rotate_board(rot);
+
     axis(h.board_ax, 'tight');
     axis(h.board_ax, 'equal');
+  end
+
+  function rotate_board(rad)
+  % rotates the current board by rad radians
+    R = [cos(rad) -sin(rad); sin(rad) cos(rad)];
+
+    for i = 1:numel(h.beads.h)
+      % new positions
+      p = R * h.beads.opos(:,:,i);
+      % rotate bead
+      set(h.beads.h(i), 'XData', p(1,:), 'YData', p(2,:));
+    end
   end
 
   function set_bead_ButtonDownFcn()
@@ -376,6 +396,17 @@ h.new_board([], []);
     for i = 1:numel(h.colorPalette)
       set(h.colorPalette(i), 'ButtonDownFcn', h.palette_click_callback);
     end
+  end
+
+  function rot_slider_callback(obj_hdl, evt)
+    % get current slider value
+    deg = get(h.rotSlider, 'Value');
+    % update rotation text
+    set(h.rotTextBox, 'String', sprintf('%d deg', int32(get(h.rotSlider, 'Value'))));
+    % rotate board
+    h.rotate_board(deg*pi/180);
+    axis(h.board_ax, 'tight');
+    axis(h.board_ax, 'square');
   end
 
   function bead_click_callback(obj_hdl, evt)
