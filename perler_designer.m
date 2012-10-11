@@ -69,10 +69,10 @@ h.newButton = uicontrol('style', 'pushbutton', ...
                           'BackgroundColor', 'w');
 
 % save button                                
-h.saveButton = uicontrol('style', 'pushbutton', ...
+h.printButton = uicontrol('style', 'pushbutton', ...
                           'units', 'pixels', ...
                           'position', [660 320 70 20], ...
-                          'string', 'Save', ...
+                          'string', 'Print', ...
                           'BackgroundColor', 'w');
 
 % initialize board axis
@@ -152,12 +152,14 @@ h.set_selected_color = @set_selected_color;
 h.rotate_board = @rotate_board;
 h.new_board = @new_board;
 h.save_board = @save_board;
+h.load_board = @load_board;
+h.print_board = @print_board;
 
 % set rotation slider callback
 set(h.rotSlider, 'Callback', h.rot_slider_callback);
 % set callback functions for push buttons
 set(h.newButton, 'Callback', h.new_board);
-set(h.saveButton, 'Callback', h.save_board);
+set(h.printButton, 'Callback', h.print_board);
 
 % initialize the gui
 h.init_color_palette();
@@ -195,8 +197,10 @@ h.new_board([], []);
 
   function new_board(obj_hdl, evt)
   % create a new board
-    if (clear_current_board() == false)
-      return
+    if (~isempty(obj_hdl))
+      if (clear_current_board() == false)
+        return
+      end
     end
 
     % get current rotation value
@@ -389,50 +393,10 @@ h.new_board([], []);
     end
   end
 
-  function set_bead_ButtonDownFcn()
-    for i = 1:numel(h.beads.h)
-      set(h.beads.h(i), 'ButtonDownFcn', h.bead_click_callback);
-    end
-  end
-  
-  function set_palette_ButtonDownFcn()
-    for i = 1:numel(h.colorPalette)
-      set(h.colorPalette(i), 'ButtonDownFcn', h.palette_click_callback);
-    end
-  end
-
-  function rot_slider_callback(obj_hdl, evt)
-    % get current slider value
-    deg = get(h.rotSlider, 'Value');
-    % update rotation text
-    set(h.rotTextBox, 'String', sprintf('%d deg', int32(get(h.rotSlider, 'Value'))));
-    % rotate board
-    h.rotate_board(deg*pi/180);
-    axis(h.board_ax, 'tight');
-    axis(h.board_ax, 'square');
-  end
-
-  function bead_click_callback(obj_hdl, evt)
-    set(obj_hdl, 'FaceColor', h.colors(:,h.icurrColor));
-  end
-
-  function palette_click_callback(obj_hdl, evt)
-    h.set_selected_color(find(h.colorPalette == obj_hdl));
-  end
 
   function set_selected_color(icolor)
     h.icurrColor = icolor;
     set(h.selectedColorDisp, 'FaceColor', h.colors(:,h.icurrColor));
-  end
-
-  function ret = clear_current_board()
-    % TODO: prompt the user to make sure he wants to clear?
-    h.beads.pos = [];
-    for i = 1:numel(h.beads.h)
-      delete(h.beads.h(i));
-    end
-    h.beads.h = [];
-    ret = true;
   end
 
   function ph = draw_circ(t, scale, color, res, usePatch)
@@ -466,7 +430,30 @@ h.new_board([], []);
     end
   end
 
-  function save_board(obj_hdl, evt)
+  function ret = clear_current_board()
+    % TODO: prompt the user to make sure he wants to clear?
+    %rsp = questdlg('Are you sure you want to clear the current board?', ...
+    %                'Clear Board', 'Yes', 'No', 'Yes');
+    rsp = 'Yes';
+
+    if (strcmp(rsp, 'No'))
+      ret = false;
+    else
+      h.beads.opos = [];
+      for i = 1:numel(h.beads.h)
+        delete(h.beads.h(i));
+      end
+      h.beads.h = [];
+      ret = true;
+    end
+  end
+
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  %% Callback Functions
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+  function print_board(obj_hdl, evt)
     F = getframe(h.board_ax);
     % create data string
     dstr = datestr(now(), 'yyyy_mm_dd_HH_MM_SS');
@@ -475,6 +462,48 @@ h.new_board([], []);
     fprintf('saving %s...', fname);
     imwrite(F.cdata, fname);
     fprintf('done\n');
+  end
+
+  function set_bead_ButtonDownFcn()
+    for i = 1:numel(h.beads.h)
+      set(h.beads.h(i), 'ButtonDownFcn', h.bead_click_callback);
+    end
+  end
+  
+  function set_palette_ButtonDownFcn()
+    for i = 1:numel(h.colorPalette)
+      set(h.colorPalette(i), 'ButtonDownFcn', h.palette_click_callback);
+    end
+  end
+
+  function rot_slider_callback(obj_hdl, evt)
+    % get current slider value
+    deg = get(h.rotSlider, 'Value');
+    % update rotation text
+    set(h.rotTextBox, 'String', sprintf('%d deg', int32(get(h.rotSlider, 'Value'))));
+    % rotate board
+    h.rotate_board(deg*pi/180);
+    axis(h.board_ax, 'tight');
+    axis(h.board_ax, 'square');
+  end
+
+  function bead_click_callback(obj_hdl, evt)
+    set(obj_hdl, 'FaceColor', h.colors(:,h.icurrColor));
+  end
+
+  function palette_click_callback(obj_hdl, evt)
+    h.set_selected_color(find(h.colorPalette == obj_hdl));
+  end
+
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  %% Save/Load Functions
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+  function save_board()
+  end
+
+  function load_board()
   end
 
 end
